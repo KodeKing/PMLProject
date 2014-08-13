@@ -1,16 +1,18 @@
 ---
 title: "Practical Machine Learning Project"
-author: "Aspiring Data Scientist"
-date: "August 11, 2014"
+date: "August 13, 2014"
 output: html_document
 ---
 
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
 
 First, needed libraries will be loaded and some functions defined.
-```{r results='asis',echo=TRUE}
+```{r libraryChunk, results='hide',echo=TRUE}
 library(Hmisc)
 library(caret)
+```
+
+```{r functionDefnChunk, results='asis',echo=TRUE}
 
 # functions to be used later
 # get number of NAs in each column of data frame
@@ -22,8 +24,7 @@ getColnas <- function(tdf) {
 numerfy <- function(tdf) {
   # get numeric cols
   numcol = sapply(tdf,is.numeric)
-  ans = tdf[,numcol]
-  
+  ans = tdf[,numcol] 
 }
 # write 20, 1-character files
 # submission function from instructor:
@@ -37,11 +38,9 @@ pml_write_files = function(x){
 ```
 
 
-```{r results='asis',echo=TRUE}
+```{r setUpData,results='asis',echo=TRUE}
 #  Set up training data (trn) and test data (tst)
 setwd("C:/Users/Jack/Documents/EducationalCourses/PML/prj")
-# trn= 19622 obs 160 vars
-# trclasse is "A", "B", "C", "D", or "E"
 dataTrain = read.csv("pml-training.csv",stringsAsFactors=FALSE,
                      header=TRUE)
 # tst = 20 obs 160 vars
@@ -49,6 +48,9 @@ dataTest = read.csv("pml-testing.csv",stringsAsFactors=FALSE,
                     header=TRUE)
 
 # split dataTrain into training (trn) and (tst)
+# trn= 19622 obs 160 vars
+# trclasse is "A", "B", "C", "D", or "E"
+set.seed(1234)
 inTrain <- createDataPartition(y=dataTrain$classe,
                                p=0.7, list=FALSE)
 
@@ -57,15 +59,15 @@ tst <- dataTrain[-inTrain,]
 # make classe, the response variable, a factor
 trn$classe <- factor(trn$classe)
 tst$classe <- factor(tst$classe)
-cat(nrow(trn),' obs training and ',nrow(tst),' rows test',
-    sep='')
+cat(nrow(trn),' obs training and ',nrow(tst),' rows test\n',sep='')
   
 
 ```
+  
 Now get rid of zero and near-zero variance predictors, that is
 predictors will little information content and likely unusable
 in prediction model.  Also, get rid of columns with many NAs.
-```{r results='asis',echo=TRUE}
+```{r preProcessDataChunk, results='asis',echo=TRUE}
 # get rid of zero and near-zero variance predictors
 nzvCols <- nearZeroVar(trn)
 nBefore=ncol(trn)
@@ -80,10 +82,13 @@ badCol <- which(getColnas(trn2)>500)
 trn3 <- trn2[,-badCol]
 nAfter=ncol(trn3)
 cat('Columns reduced from ',nBefore,' to ',nAfter,'\n',sep='')
-
+# Now apply principal components analysis
+# Get enough principal components to explain 
+#     70% of the variance
 classe = trn3$classe
 trn4num=numerfy(trn3)
 preProcObj = preProcess(trn4num,thresh=0.70, method='pca')
+# trn5 will consist of needed prin comp ie PC1, PC2, etc
 trn5 = predict(preProcObj,trn4num)
 
 ```
@@ -91,7 +96,7 @@ trn5 = predict(preProcObj,trn4num)
 Now, model the data using the caret train() function.
 First specify a train control function will create the model
 using 10-fold (the default) cross validation, repeated 3 times.
-```{r results='asis',echo=TRUE}
+```{r setUpControlFunctionChunk,results='asis',echo=TRUE}
 # set up trControl function for train()
 cvCtrl <- trainControl(method = "repeatedcv", repeats = 3)
 mdl1 = train(classe ~ ., data = trn5, method = "rpart",
@@ -101,18 +106,22 @@ trnPred = predict(mdl1,trn5)
 
 ```
 Next, assess the results:
-```{r}
-# below gives accuracy of 0.6325
+```{r getConfusionMatrixChunk} 
+# below gives accuracy of 0.658 (will change on
+#    subsequent runs)
 confusionMatrix(trnPred,classe)
 
 ```
-Next, run the model agains the test data.  The accuracy of the
+
+Next, run the model against the test data.  The accuracy of the
 model against the training data is optimistic since the model was
 fitted to that data.
 The accuracy of the model against the test data should be worse.
 The accuracy of the model against the test data is the best
 available estimate of the out of sample error rate.
-```{r}
+Accuracy turned out to be 0.631 (will change on
+    subsequent runs)
+```{r runModelonTestDataChunk}
 # now, try out on test data
 # pull off classe
 classe = tst$classe
@@ -130,7 +139,7 @@ confusionMatrix(ans,classe)
 
 ```
 Finally, run the model against the test set and submit to Coursera.
-```{r}
+```{r submitAnswersChunk,results='hide'}
 # prepare answers for submission to Coursera
 # strip off classe from xnam
 xnam=xnam[-59]
@@ -140,7 +149,6 @@ dataTestpre = predict(preProcObj,dataTestNum)
 ans2 = predict(mdl1,dataTestpre)
 print(ans2)
 pml_write_files(ans2)
-
 
 ```
 
